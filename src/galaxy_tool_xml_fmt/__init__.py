@@ -1,7 +1,8 @@
 """Opinionated formatter for Galaxy tool XML.
 
 Tier 3 of the Galaxy tool refactoring architecture (see ``README.md``).
-Public surface intentionally empty in this scaffold release — the
-``format_tool_document`` entry point and the CLI land in subsequent
-milestones (see ``PLAN.md``).
+The package follows the dignified-python rule against re-exports: the
+public surface is the modules themselves, not symbols hoisted to the
+top level. Callers import ``format_tool_document`` from
+``galaxy_tool_xml_fmt.format`` directly.
 """

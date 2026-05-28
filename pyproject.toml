@@ -7,13 +7,16 @@ requires-python = ">=3.10"
 license = "MIT"
 authors = [{ name = "Richard Burhans" }]
 dependencies = [
-    # Tier-1 foundation. During local development, install editable:
-    #   uv pip install -e ../galaxy-tool-xml
-    # Once tier 1 is published, pin a real version range here.
+    # Tier-1 foundation. Sourced from GitHub until tier 1 is published;
+    # see [tool.uv.sources] below. Once published, pin a real version
+    # range here and drop the source override.
     "galaxy-tool-xml",
     "click>=8",
     "lxml>=5",
 ]
+
+[tool.uv.sources]
+galaxy-tool-xml = { git = "https://github.com/richard-burhans/galaxy-tool-xml" }
 
 [project.scripts]
 galaxy-tool-xml-fmt = "galaxy_tool_xml_fmt.cli:main"

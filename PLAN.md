@@ -2,10 +2,11 @@
 
 ## Status
 
-**Skeleton only.** The opinionated formatter is not yet implemented —
-this file scopes the intent and lists the open questions, drawing on
-`galaxy-tool-xml/docs/decisions.md` §3 (lxml-as-source-of-truth, no
-serializer in tier 1) and §9 (three-tier vision).
+**M0–M4 are done. M2 (CLI) is the remaining v0.1 work.** Five rules
+ship (GTX001–005), the format pipeline is wired, the regression
+fixture-replay test is green on every retained corpus failure, and the
+2026-05-28 sweep over 21 public repos found 100% idempotence on the
+4,014 tools that validate under profile 26.1.
 
 ## Design intent
 
@@ -14,91 +15,89 @@ per input, no user-tunable style. The opinion lives here so tiers 1
 and 2 can ignore trivia. After every format pass, repeated formatting
 of the output must be a no-op (idempotence).
 
-## What we *will* preserve
+## What we *preserve*
 
 - Element structure, attribute names and order (where Galaxy XML
   doesn't impose semantic order, the formatter's canonical order
   applies)
 - CDATA sections (the contents of `<command>`, `<configfile>`, etc.)
-- XML comments
+- XML comments — including whitespace-only ones (see `docs/decisions.md`
+  D5's 2026-05-28 refinement)
 - Element text content verbatim
 - The XML encoding declaration
 
-## What we *will* rewrite
+## What we *rewrite*
 
-- Indentation (canonical: 4 spaces, no tabs; configurable later if
-  the community pushes back)
-- Attribute quoting (canonical: double quotes; backslash-escape
-  embedded literal double-quotes)
-- Empty-element shorthand (canonical: `<foo/>` over `<foo></foo>`
-  when the content model permits, else expanded with no text)
-- Trailing whitespace
-- Blank-line policy (canonical: one blank between sibling top-level
-  sections, no blank inside dense leaf sequences like `<options>`)
-- Order of attributes when no ordering constraint exists (canonical:
-  `name` first, then alphabetical, with a small allow-list of
-  semantic-first attributes per element kind)
+- Indentation (canonical: 4 spaces, no tabs — GTX001)
+- Attribute quoting (canonical: double quotes — locked by lxml + tests, D7)
+- Empty-element shorthand (canonical: `<foo/>` over `<foo></foo>` when
+  the content model permits — GTX004)
+- Trailing / inner whitespace on dense leaves
+- Blank-line policy (canonical: one blank between top-level sections —
+  GTX003)
+- `<param>` attribute order (canonical: IUC order — GTX002)
+- `<tool>` attribute order (canonical: id, name, version, profile,
+  alphabetical — GTX005)
+- One-line layout for all attributes regardless of source layout
+  (locked by lxml + tests, D8)
+
+## Milestone status
+
+### M0 — scaffold ✅
+
+`pyproject.toml`, `src/galaxy_tool_xml_fmt/`, `tests/`,
+`galaxy-tool-xml` declared as a dependency, ruff / mypy / pytest
+configured.
+
+### M1 — format(document) returning bytes ✅
+
+`format_tool_document(document) -> bytes` in
+`galaxy_tool_xml_fmt.format` runs every registered rule via
+`apply_edits` and serialises through lxml.
+
+### M2 — CLI ⏳ *(remaining v0.1 work)*
+
+`galaxy-tool-xml-fmt FILE...` writes canonical formatting back to each
+file in place. Mirror `black`'s ergonomics: `--check`, `--diff`,
+`--quiet`, recursive directory discovery,
+`pyproject.toml`-based config later if it earns its keep.
+
+The entry point in `pyproject.toml` (`galaxy_tool_xml_fmt.cli:main`)
+is wired but the module doesn't exist yet — pip-installing today and
+running the binary errors with `ModuleNotFoundError`.
+
+### M3 — Attribute / element ordering rules ✅ (so far)
+
+GTX002 (`<param>`) and GTX005 (`<tool>`) ship. The shared
+`attribute_ordering` helper makes adding a new per-element-kind rule
+a priority-map + one-line registration. Open: which other elements
+the community will want canonicalised (`<output>`, `<test>`,
+`<requirement>`?). Deferred until a real ask lands.
+
+### M4 — Corpus idempotence sweep ✅
+
+`scripts/corpus_check.py` walks `corpus_sources.json`, gates on profile
+26.1 validation, and asserts `format(format(x)) == format(x)`. Failing
+tools are retained under `tests/data/regressions/` and replayed by
+`tests/test_regressions.py` on every `pytest` run. Per-rule trigger
+stats and the latest sweep numbers live in `docs/corpus_format_stats.md`.
 
 ## Open questions
 
-- **Idempotence proof.** How do we test it? Likely: a corpus-wide
-  format → re-format → diff sweep, gated under `pytest -m slow`.
-  Plumbed via the parent repo's `scripts/corpus_check.py` /
-  `scripts/measure.py` conventions.
-- **Config surface.** `black` has very little; we probably want even
-  less. Open: line width? Attribute-per-line threshold? Decide before
-  v0.1.
-- **Tool-XML-specific rules.** Galaxy XML has idioms a generic XML
-  formatter wouldn't know about — CDATA placement in `<command>`,
-  Cheetah blocks inside `<command>`, formatting around `<expand>` and
-  `<macro>` tags. These deserve dedicated rules; track each in
-  `docs/decisions.md` as it ships.
-- **CLI ergonomics.** Mirror `black`: `--check`, `--diff`,
-  `--quiet`, recursive discovery, `pyproject.toml`-based config.
+- **Tool-XML-specific rules beyond GTX001–005.** Galaxy idioms a
+  generic formatter wouldn't know about — Cheetah blocks inside
+  `<command>`, formatting around `<expand>` / `<macro>`. Each
+  deserves a dedicated rule; track in `docs/decisions.md` as
+  evidence accumulates.
 - **Integration with tier 2.** Tier 2 will call this internally for
-  diff display in test harnesses; expose a stable
-  `format_tool_document(document) -> bytes` API for that path.
+  diff display in its test harness; the `format_tool_document` API is
+  already stable for that path.
 
-## Milestone plan
+## v0.1 acceptance
 
-### M0 — scaffold *(in flight)*
-
-- `pyproject.toml`, `src/galaxy_tool_xml_fmt/`, `tests/`
-- `galaxy-tool-xml` declared as a dependency
-- ruff / mypy / pytest configured matching the parent
-- Smoke test importing the package
-
-### M1 — format(document) returning bytes
-
-- `format_tool_document(document) -> bytes` — minimal canonical
-  indentation + attribute quoting only; no semantic reordering yet
-- Idempotence test on a small fixture set
-- No CLI yet
-
-### M2 — CLI
-
-- `galaxy-tool-xml-fmt FILE...` — write canonical formatting back
-  to each file in place
-- `--check` / `--diff` / `--quiet` flags
-- Recursive directory discovery
-
-### M3 — Attribute / element ordering rules
-
-- Per-element-kind ordering policy (sourced from the typed model)
-- Decisions documented in `docs/decisions.md` as each lands
-
-### M4 — Corpus idempotence sweep
-
-- Format every tool in `galaxy-tool-xml/docs/corpus_data/`, re-format
-  the output, diff. Any non-empty diff is a bug.
-- Plug into the parent repo's `scripts/measure.py` so the result is
-  cited like every other §10 measurement.
-
-## Verification (M0 acceptance)
-
-1. `uv sync` succeeds with `galaxy-tool-xml` as a dev path-dep.
-2. `uv run pytest` runs the smoke test green.
-3. `uv run ruff check .` and `uv run ruff format --check .` are clean.
-4. `uv run mypy src` reports no issues.
-5. The package imports without side effects and `__init__.py` exposes
-   nothing yet (no `__all__`, no re-exports).
+1. `uv sync`, `uv run pytest`, `uv run ruff check .`, `uv run ruff
+   format --check .`, `uv run mypy src` all clean.
+2. `uv run python scripts/corpus_check.py` reports 0 non-idempotent
+   and 0 crashed on the current `corpus_sources.json` snapshot.
+3. M2 ships: `galaxy-tool-xml-fmt FILE...` works end-to-end with
+   `--check` and `--diff`.

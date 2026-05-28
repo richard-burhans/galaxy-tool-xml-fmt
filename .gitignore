@@ -20,3 +20,6 @@ uv.lock
 .idea/
 .vscode/
 *.swp
+
+# Corpus data copied in for idempotence testing (large, reproducible from parent repo)
+corpus/
